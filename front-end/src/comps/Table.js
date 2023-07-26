@@ -1,5 +1,4 @@
-import React from "react";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import URL from "../config/URLConfig";
 import { DeleteIcon } from "@chakra-ui/icons";
@@ -12,32 +11,26 @@ import {
   Th,
   Td,
   TableContainer,
+  Select,
 } from "@chakra-ui/react";
 
 export default function Table({ setImg, receipts }) {
   const [data, setData] = useState(null);
 
+  useEffect(() => {
+    getDocs();
+  }, [receipts]);
+
   async function getDocs() {
     const extractedData = receipts.map((receipt) => ({
-      amount: receipt.analyzedResults.total_amount,
-      description: (() => {
-        const items = receipt.analyzedResults.line_items;
-        let qxi = items.map(
-          (item) => `${item.quantity || 1} x ${item.description}`
-        );
-        return (
-          <ul>
-            {qxi.map((detail) => (
-              <li>{detail}</li>
-            ))}
-          </ul>
-        );
-      })(),
-      date: (() => {
-        const dateString = receipt.analyzedResults.invoice_date;
-        return dateString;
-      })(),
-      vendor: receipt.analyzedResults.supplier_name,
+      amount: receipt.analyzedResults.AMOUNT,
+      calories: receipt.analyzedResults.CALORIES,
+      carbonhydrate: receipt.analyzedResults.CARBOHYDRATE,
+      fat: receipt.analyzedResults.FAT,
+      protein: receipt.analyzedResults.PROTEIN,
+      sodium: receipt.analyzedResults.SODIUM,
+      date: receipt.dateAdded,
+      fileName: receipt.fileName,
       url: (
         <img
           src={receipt.imageURL}
@@ -47,13 +40,13 @@ export default function Table({ setImg, receipts }) {
           height="200"
         />
       ),
-      id: receipt._id
+      id: receipt._id,
+      multiplier: 1, // Default multiplier is set to 1
     }));
     setData(extractedData);
-    // window.location.reload();
   }
 
-  async function deletRequest(id) {
+  async function deleteRequest(id) {
     try {
       const JWT = sessionStorage.getItem("bookKeepingCredential");
       await axios.delete(URL + "receipts/" + id, {
@@ -68,14 +61,17 @@ export default function Table({ setImg, receipts }) {
     }
   }
 
-  //Calls function only once (when it is onMount)
-  function handleClick(id) {
-    deletRequest(id);
+  function handleMultiplierChange(id, multiplier) {
+    setData((prevData) =>
+      prevData.map((item) =>
+        item.id === id ? { ...item, multiplier } : item
+      )
+    );
   }
 
-  useEffect(() => {
-    getDocs();
-  }, [receipts]);
+  function handleDelete(id) {
+    deleteRequest(id);
+  }
 
   const dataTable =
     data == null ? (
@@ -83,19 +79,35 @@ export default function Table({ setImg, receipts }) {
     ) : (
       data.map((item) => (
         <Tr key={item.id}>
-          <Td>{item.date}</Td>
-          <Td>{item.vendor}</Td>
-          <Td>{item.description}</Td>
-          <Td>{item.amount}</Td>
+          <Td>{item.fileName.slice(0, -5)}</Td>
+          <Td>{item.date.substring(0, 10)}</Td>
+          <Td>{item.amount || "-"}</Td>
+          <Td>{item.calories * item.multiplier || "-"}</Td>
+          <Td>{item.carbonhydrate * item.multiplier || "-"}</Td>
+          <Td>{item.fat * item.multiplier || "-"}</Td>
+          <Td>{item.protein * item.multiplier || "-"}</Td>
+          <Td>{item.sodium * item.multiplier || "-"}</Td>
           <Td>{item.url}</Td>
           <Td>
             <Button
               colorScheme="red"
               variant="outline"
-              onClick={() => handleClick(item.id)}
+              onClick={() => handleDelete(item.id)}
             >
               <DeleteIcon />
             </Button>
+          </Td>
+          <Td>
+            <Select
+              value={item.multiplier}
+              onChange={(e) =>
+                handleMultiplierChange(item.id, parseInt(e.target.value))
+              }
+            >
+              <option value={1}>x1</option>
+              <option value={2}>x2</option>
+              <option value={3}>x3</option>
+            </Select>
           </Td>
         </Tr>
       ))
@@ -107,12 +119,17 @@ export default function Table({ setImg, receipts }) {
         <UITable variant="striped" size="lg">
           <Thead>
             <Tr>
+              <Th>Food</Th>
               <Th>Date</Th>
-              <Th>Vendor</Th>
-              <Th>Description</Th>
               <Th>Amount</Th>
+              <Th>Calories</Th>
+              <Th>Carbonhydrate</Th>
+              <Th>Fat</Th>
+              <Th>Protein</Th>
+              <Th>Sodium</Th>
               <Th>Image</Th>
-              <Th/>
+              <Th>Delete</Th>
+              <Th>Multiplier</Th> 
             </Tr>
           </Thead>
           <Tbody>{dataTable}</Tbody>
