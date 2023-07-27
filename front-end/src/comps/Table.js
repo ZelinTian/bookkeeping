@@ -1,8 +1,7 @@
-import React from "react";
-import { useState, useEffect } from "react";
-import axios from "axios";
-import URL from "../config/URLConfig";
-import { DeleteIcon } from "@chakra-ui/icons";
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import URL from '../config/URLConfig';
+import { DeleteIcon } from '@chakra-ui/icons';
 import {
   Button,
   Table as UITable,
@@ -12,107 +11,83 @@ import {
   Th,
   Td,
   TableContainer,
-} from "@chakra-ui/react";
+  Select,
+  TableCaption,
+} from '@chakra-ui/react';
+import TableItem from './TableItem';
 
-export default function Table({ setImg, receipts }) {
+export default function Table({ setImg, receipts, onAmount }) {
   const [data, setData] = useState(null);
 
-  async function getDocs() {
-    const extractedData = receipts.map((receipt) => ({
-      amount: receipt.analyzedResults.total_amount,
-      description: (() => {
-        const items = receipt.analyzedResults.line_items;
-        let qxi = items.map(
-          (item) => `${item.quantity || 1} x ${item.description}`
-        );
-        return (
-          <ul>
-            {qxi.map((detail) => (
-              <li>{detail}</li>
-            ))}
-          </ul>
-        );
-      })(),
-      date: (() => {
-        const dateString = receipt.analyzedResults.invoice_date;
-        return dateString;
-      })(),
-      vendor: receipt.analyzedResults.supplier_name,
-      url: (
-        <img
-          src={receipt.imageURL}
-          alt="receipt photo"
-          onClick={() => setImg(receipt.imageURL)}
-          width="200"
-          height="200"
-        />
-      ),
-      id: receipt._id
-    }));
-    setData(extractedData);
-    // window.location.reload();
-  }
-
-  async function deletRequest(id) {
-    try {
-      const JWT = sessionStorage.getItem("bookKeepingCredential");
-      await axios.delete(URL + "receipts/" + id, {
-        headers: {
-          Authorization: `Bearer ${JWT}`,
-        },
-      });
-      alert("Receipt removed successfully!");
-      setTimeout(() => window.location.reload(), 500);
-    } catch (error) {
-      alert(error.message);
+  useEffect(() => {
+    async function getDocs() {
+      const extractedData = receipts.map((receipt) => ({
+        amount: receipt.analyzedResults.AMOUNT,
+        calories: receipt.analyzedResults.CALORIES,
+        carbonhydrate: receipt.analyzedResults.CARBOHYDRATE,
+        fat: receipt.analyzedResults.FAT,
+        protein: receipt.analyzedResults.PROTEIN,
+        sodium: receipt.analyzedResults.SODIUM,
+        date: new Date(receipt.dateAdded).toLocaleDateString(),
+        fileName: receipt.fileName,
+        url: (
+          <img
+            src={receipt.imageURL}
+            alt="receipt photo"
+            onClick={() => setImg(receipt.imageURL)}
+            width="200"
+            height="200"
+          />
+        ),
+        id: receipt._id,
+        multiplier: localStorage.getItem(receipt.fileName.toString()) || 1, // Default multiplier is set to 1
+      }));
+      setData(extractedData);
     }
-  }
-
-  //Calls function only once (when it is onMount)
-  function handleClick(id) {
-    deletRequest(id);
-  }
+    getDocs();
+  }, [receipts, setImg]);
 
   useEffect(() => {
-    getDocs();
-  }, [receipts]);
+    if (!data) return;
+    const totalCalories = data.reduce(
+      (pre, curr) => pre + Number(curr.calories * curr.multiplier),
+      0,
+    );
+    onAmount(totalCalories);
+  }, [onAmount, data]);
+
+  function handleMultiplierChange(itemId, multiplier) {
+    setData((prevData) =>
+      prevData.map((item) => (item.id === itemId ? { ...item, multiplier } : item)),
+    );
+  }
 
   const dataTable =
     data == null ? (
       <></>
     ) : (
       data.map((item) => (
-        <Tr key={item.id}>
-          <Td>{item.date}</Td>
-          <Td>{item.vendor}</Td>
-          <Td>{item.description}</Td>
-          <Td>{item.amount}</Td>
-          <Td>{item.url}</Td>
-          <Td>
-            <Button
-              colorScheme="red"
-              variant="outline"
-              onClick={() => handleClick(item.id)}
-            >
-              <DeleteIcon />
-            </Button>
-          </Td>
-        </Tr>
+        <TableItem item={item} key={item.id} onMultiplierChange={handleMultiplierChange} />
       ))
     );
 
   return (
     data && (
       <TableContainer>
-        <UITable variant="striped" size="lg">
+        <UITable variant="striped" size="sm">
           <Thead>
             <Tr>
+              <Th>Food</Th>
               <Th>Date</Th>
-              <Th>Vendor</Th>
-              <Th>Description</Th>
               <Th>Amount</Th>
+              <Th>Calories</Th>
+              <Th>Carbonhydrate</Th>
+              <Th>Fat</Th>
+              <Th>Protein</Th>
+              <Th>Sodium</Th>
               <Th>Image</Th>
-              <Th/>
+              <Th>Delete</Th>
+              <Th>Multiplier</Th>
             </Tr>
           </Thead>
           <Tbody>{dataTable}</Tbody>
